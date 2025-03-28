@@ -67,5 +67,5 @@ def is_bouquet_available(bouquet_id):
     """Проверить, есть ли букет в наличии по его ID."""
     bouquet = get_bouquet_details(bouquet_id)
     if bouquet:
-        return bouquet.availability
+        return bouquet.is_available
     return False
