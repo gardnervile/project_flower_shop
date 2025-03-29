@@ -3,9 +3,9 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler, CallbackQueryHandler
 
 
-API_TOKEN = ""
-COURIER_ID = ""
-FLORIST_ID = ""
+API_TOKEN = "7897677286:AAHQVy2LWkYPCeiMrZFu-H2SHdqRm4qFsec"
+COURIER_ID = "273610047"
+FLORIST_ID = "273610047"
 
 
 logging.basicConfig(level=logging.INFO)
