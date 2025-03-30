@@ -1,13 +1,13 @@
 from django.contrib import admin
-from .models import Category, Bouquet, Occasion, Customer, Order
+from .models import Budget, Bouquet, Occasion, Customer, Order
 from django.utils.safestring import mark_safe
 
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "description")
-    verbose_name = "Категория"
-    verbose_name_plural = "Категории"
+@admin.register(Budget)
+class BudgetAdmin(admin.ModelAdmin):
+    list_display = ("name", "min_price", "max_price","description")
+    verbose_name = "Бюджет"
+    verbose_name_plural = "Бюджеты"
 
 
 @admin.register(Occasion)
@@ -19,8 +19,8 @@ class OccasionAdmin(admin.ModelAdmin):
 
 @admin.register(Bouquet)
 class BouquetAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "category", "occasion", "is_available", "preview")
-    list_filter = ("category", "occasion", "is_available")
+    list_display = ("name", "price", "budget", "occasion", "is_available", "preview")
+    list_filter = ("budget", "occasion", "is_available")
     search_fields = ("name", "description")
 
     def preview(self, obj):

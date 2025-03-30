@@ -1,17 +1,18 @@
 from django.db import models
 
 
-class Category(models.Model):
+class Budget(models.Model):
     name = models.CharField(max_length=100, verbose_name="Название")
+    min_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Минимальная цена")
+    max_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Максимальная цена")
     description = models.TextField(blank=True, verbose_name="Описание")
 
     class Meta:
-        verbose_name = "Категория"
-        verbose_name_plural = "Категории"
+        verbose_name = "Бюджет"
+        verbose_name_plural = "Бюджеты"
 
     def __str__(self):
         return self.name
-
 
 class Occasion(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Название")
@@ -29,7 +30,7 @@ class Bouquet(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
     description = models.TextField(verbose_name="Описание")
     image = models.ImageField(upload_to="bouquets/", verbose_name="Изображение", blank=True, null=True)  # Изменено
-    category = models.ForeignKey("Category", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Категория")
+    budget = models.ForeignKey("Budget", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Бюджет")
     occasion = models.ForeignKey("Occasion", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Повод")
     is_available = models.BooleanField(default=True, verbose_name="В наличии")
 
