@@ -9,9 +9,9 @@ django.setup()
 
 from bot.models import Bouquet, Order, Occasion, Budget, Customer
 
-API_TOKEN = "7897677286:AAHQVy2LWkYPCeiMrZFu-H2SHdqRm4qFsec"
-COURIER_ID = "1008286752"
-FLORIST_ID = "1008286752"
+API_TOKEN = "API_TOKEN"
+COURIER_ID = "COURIER_ID"
+FLORIST_ID = "FLORIST_ID"
 
 
 logging.basicConfig(level=logging.INFO)
@@ -21,9 +21,8 @@ CHOOSING_EVENT, ENTERING_CUSTOM_EVENT, CHOOSING_BUDGET, AWAITING_ACTION, ORDERIN
 
 #Клавиатура выбора повода
 def get_occasion_keyboard() -> ReplyKeyboardMarkup:
-    # Загружаем доступные поводы из базы данных
-    occasions = Occasion.objects.all()  # Предположим, что у вас есть модель Occasion
-    occasion_list = [[occasion.name] for occasion in occasions]  # Форматируем для клавиатуры
+    occasions = Occasion.objects.all()
+    occasion_list = [[occasion.name] for occasion in occasions]
 
     return ReplyKeyboardMarkup(occasion_list, one_time_keyboard=True, resize_keyboard=True)
 
@@ -65,14 +64,11 @@ def show_bouquet(update: Update, context: CallbackContext) -> int:
     event = context.user_data.get('event')
     budget = context.user_data.get('budget')
 
-    # Получаем объект Occasion по имени
     occasion = Occasion.objects.filter(name=event).first()
 
-    # Фильтруем букеты по выбранному событию
     bouquets = Bouquet.objects.filter(occasion=occasion)
 
     if budget != "Не важно":
-        # Получаем объект бюджета по имени
         budget_obj = Budget.objects.filter(name=budget).first()
         if budget_obj:
             bouquets = bouquets.filter(price__gte=budget_obj.min_price, price__lte=budget_obj.max_price)
@@ -80,11 +76,13 @@ def show_bouquet(update: Update, context: CallbackContext) -> int:
     if bouquets.exists():
         bouquet = bouquets.first()
         photo = bouquet.image if bouquet.image else " "
+        name = bouquet.name
         description = bouquet.description
         price = f"Цена: {bouquet.price} ₽"
 
         update.message.bot.send_photo(chat_id=update.message.chat_id, photo=photo,
-                                      caption=f"{description}\n{price}")
+                                      caption=f"*{name}*\n{description}\n{price}",
+                                      parse_mode='Markdown')
 
         keyboard = [
             [InlineKeyboardButton("Заказать букет", callback_data='order')],
@@ -115,23 +113,19 @@ def choose_budget(update: Update, context: CallbackContext) -> int:
 
     context.user_data['budget'] = selected_budget
 
-    # Сразу показываем букеты после выбора бюджета
     show_bouquet(update, context)
 
     return AWAITING_ACTION
 
 def show_all_bouquets_by_event_and_budget(update: Update, context: CallbackContext) -> int:
-    event = context.user_data.get('event')  # Получаем выбранный повод
-    budget = context.user_data.get('budget')  # Получаем выбранный бюджет
+    event = context.user_data.get('event') 
+    budget = context.user_data.get('budget') 
 
-    # Получаем объект Occasion по имени
     occasion = Occasion.objects.filter(name=event).first()
 
-    # Фильтруем букеты по выбранному событию
     bouquets = Bouquet.objects.filter(occasion=occasion)
 
     if budget != "Не важно":
-        # Получаем объект бюджета по имени
         budget_obj = Budget.objects.filter(name=budget).first()
         if budget_obj:
             bouquets = bouquets.filter(price__gte=budget_obj.min_price, price__lte=budget_obj.max_price)
@@ -143,7 +137,6 @@ def show_all_bouquets_by_event_and_budget(update: Update, context: CallbackConte
             price = f"Цена: {bouquet.price} ₽"
 
             try:
-                # Создаем клавиатуру для каждого букета
                 keyboard = [
                     [InlineKeyboardButton("Заказать букет", callback_data=f'order_{bouquet.id}')],
                     [InlineKeyboardButton("Заказать консультацию", callback_data='consult')],
@@ -192,12 +185,24 @@ def ask_address(update: Update, context: CallbackContext) -> int:
 
 def ask_datetime(update: Update, context: CallbackContext) -> int:
     context.user_data['datetime'] = update.message.text
+    print(f"DEBUG: user_data = {context.user_data}")  # Отладочный вывод
 
+    # Проверяем, есть ли event и budget
+    event = context.user_data.get('event')
+    budget = context.user_data.get('budget')
+
+    if not event or not budget:
+        update.message.reply_text("Произошла ошибка. Повторите заказ.")
+        return ConversationHandler.END
     # Сохраняем клиента в базе данных
-    customer = Customer.objects.create(
-        name=context.user_data['name'],
-        phone=context.user_data.get('phone', '')
-    )
+    customer, created = Customer.objects.get_or_create(
+    defaults={
+        'name': context.user_data.get('name', ''),
+        'address': context.user_data.get('address', ''),
+        'budget': context.user_data.get('budget', ''),
+        'phone': context.user_data.get('phone', '')  # Убрали дублирование 'name'
+    }
+)
 
     # Получаем выбранный букет
     bouquet = Bouquet.objects.filter(occasion__name=context.user_data['event']).first()
@@ -214,7 +219,7 @@ def ask_datetime(update: Update, context: CallbackContext) -> int:
     order_info = f"Новый заказ:\n\nИмя: {context.user_data['name']}\nАдрес: {context.user_data['address']}\nДата/время: {context.user_data['datetime']}\nПовод: {context.user_data['event']}\nБюджет: {context.user_data['budget']}"
 
     context.bot.send_message(chat_id=COURIER_ID, text=order_info)
-    update.message.reply_text("Спасибо! Ваш заказ принят и скоро будет доставлен.")
+    update.message.reply_text("Спасибо! Ваш заказ принят и скоро мы с вами свяжемся.")
     return ConversationHandler.END
 
 # Телефон для консультации
