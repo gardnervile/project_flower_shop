@@ -9,9 +9,9 @@ django.setup()
 
 from bot.models import Bouquet, Order, Occasion, Budget, Customer
 
-API_TOKEN = "API_TOKEN"
-COURIER_ID = "COURIER_ID"
-FLORIST_ID = "FLORIST_ID"
+API_TOKEN = "7897677286:AAHQVy2LWkYPCeiMrZFu-H2SHdqRm4qFsec"
+COURIER_ID = "1008286752"
+FLORIST_ID = "1008286752"
 
 
 logging.basicConfig(level=logging.INFO)
@@ -121,8 +121,8 @@ def choose_budget(update: Update, context: CallbackContext) -> int:
     return AWAITING_ACTION
 
 def show_all_bouquets_by_event_and_budget(update: Update, context: CallbackContext) -> int:
-    event = context.user_data.get('event')
-    budget = context.user_data.get('budget')
+    event = context.user_data.get('event')  # Получаем выбранный повод
+    budget = context.user_data.get('budget')  # Получаем выбранный бюджет
 
     # Получаем объект Occasion по имени
     occasion = Occasion.objects.filter(name=event).first()
@@ -143,11 +143,20 @@ def show_all_bouquets_by_event_and_budget(update: Update, context: CallbackConte
             price = f"Цена: {bouquet.price} ₽"
 
             try:
+                # Создаем клавиатуру для каждого букета
+                keyboard = [
+                    [InlineKeyboardButton("Заказать букет", callback_data=f'order_{bouquet.id}')],
+                    [InlineKeyboardButton("Заказать консультацию", callback_data='consult')],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
                 if photo:
                     update.message.bot.send_photo(chat_id=update.message.chat_id, photo=photo,
-                                                  caption=f"{bouquet.name}\n{description}\n{price}")
+                                                  caption=f"{bouquet.name}\n{description}\n{price}",
+                                                  reply_markup=reply_markup)
                 else:
-                    update.message.reply_text(f"Букет: {bouquet.name}\nОписание: {description}\nЦена: {price}\n(Изображение отсутствует)")
+                    update.message.reply_text(f"Букет: {bouquet.name}\nОписание: {description}\nЦена: {price}\n(Изображение отсутствует)",
+                                              reply_markup=reply_markup)
             except Exception as e:
                 logging.error(f"Ошибка при отправке сообщения: {e}")
                 update.message.reply_text("Произошла ошибка при отправке сообщения. Пожалуйста, попробуйте позже.")
@@ -169,7 +178,6 @@ def handle_action(update: Update, context: CallbackContext) -> int:
         return ASK_PHONE
     elif query.data == 'catalog':
         return show_all_bouquets_by_event_and_budget(query, context)
-
 
     # Оформление заказа
 def ask_name(update: Update, context: CallbackContext) -> int:
