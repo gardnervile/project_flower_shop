@@ -3,15 +3,14 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler, CallbackQueryHandler
 import os
 import django
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'flower_shop.settings')
 django.setup()
 
 from bot.models import Bouquet, Order, Occasion, Budget, Customer
 
-API_TOKEN = "API_TOKEN"
-COURIER_ID = "COURIER_ID"
-FLORIST_ID = "FLORIST_ID"
+API_TOKEN = "7897677286:AAHQVy2LWkYPCeiMrZFu-H2SHdqRm4qFsec"
+COURIER_ID = "273610047"
+FLORIST_IDS = "2736100472"
 
 
 logging.basicConfig(level=logging.INFO)
@@ -64,7 +63,10 @@ def show_bouquet(update: Update, context: CallbackContext) -> int:
     event = context.user_data.get('event')
     budget = context.user_data.get('budget')
 
+    # Проверяем, найден ли повод, иначе используем "Другой повод"
     occasion = Occasion.objects.filter(name=event).first()
+    if not occasion:
+        occasion = Occasion.objects.filter(name="Другой повод").first()
 
     bouquets = Bouquet.objects.filter(occasion=occasion)
 
@@ -85,7 +87,7 @@ def show_bouquet(update: Update, context: CallbackContext) -> int:
                                       parse_mode='Markdown')
 
         keyboard = [
-            [InlineKeyboardButton("Заказать букет", callback_data='order')],
+            [InlineKeyboardButton("Заказать букет", callback_data=f'order_{bouquet.id}')],
             [InlineKeyboardButton("Заказать консультацию", callback_data='consult')],
             [InlineKeyboardButton("Посмотреть всю коллекцию", callback_data='catalog')],
         ]
@@ -99,6 +101,7 @@ def show_bouquet(update: Update, context: CallbackContext) -> int:
         update.message.reply_text("К сожалению, нет доступных букетов для вашего выбора.")
 
     return AWAITING_ACTION
+
 
 
 #выбор бюджета
@@ -118,10 +121,13 @@ def choose_budget(update: Update, context: CallbackContext) -> int:
     return AWAITING_ACTION
 
 def show_all_bouquets_by_event_and_budget(update: Update, context: CallbackContext) -> int:
-    event = context.user_data.get('event') 
-    budget = context.user_data.get('budget') 
+    event = context.user_data.get('event')
+    budget = context.user_data.get('budget')
 
+    # Проверяем, найден ли повод, иначе используем "Другой повод"
     occasion = Occasion.objects.filter(name=event).first()
+    if not occasion:
+        occasion = Occasion.objects.filter(name="Другой повод").first()
 
     bouquets = Bouquet.objects.filter(occasion=occasion)
 
@@ -158,19 +164,46 @@ def show_all_bouquets_by_event_and_budget(update: Update, context: CallbackConte
 
     return AWAITING_ACTION
 
+
 # Обработка нажатий на кнопки
 def handle_action(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
 
-    if query.data == 'order':
-        query.edit_message_text("Давайте оформим заказ. Как вас зовут?")
-        return ASK_NAME
+    # Логирование callback_data
+    logging.debug(f"Received callback_data: {query.data}")
+
+    if query.data.startswith('order_'):
+        # Это кнопка для оформления заказа
+        bouquet_id = query.data.split('_')[1]  # Получаем ID букета из callback_data
+        bouquet = Bouquet.objects.filter(id=bouquet_id).first()
+
+        if bouquet:
+            # Если букет найден, продолжаем оформление
+            if query.message and query.message.text:
+                query.edit_message_text("Давайте оформим заказ. Как вас зовут?")
+            else:
+                # Если сообщение пустое, отправляем новое сообщение
+                query.message.reply_text("Давайте оформим заказ. Как вас зовут?")
+
+            context.user_data['bouquet'] = bouquet  # Сохраняем выбранный букет
+            return ASK_NAME
+        else:
+            # Если букет не найден
+            query.edit_message_text("Извините, этот букет больше недоступен.")
+            return AWAITING_ACTION
+
     elif query.data == 'consult':
         query.edit_message_text("Укажите номер телефона, и наш флорист перезвонит вам в течение 20 минут")
         return ASK_PHONE
     elif query.data == 'catalog':
         return show_all_bouquets_by_event_and_budget(query, context)
+    else:
+        logging.error(f"Неизвестная callback_data: {query.data}")
+        query.edit_message_text("Произошла ошибка. Попробуйте еще раз.")
+        return AWAITING_ACTION
+
+
 
     # Оформление заказа
 def ask_name(update: Update, context: CallbackContext) -> int:
@@ -216,7 +249,15 @@ def ask_datetime(update: Update, context: CallbackContext) -> int:
     )
 
 
-    order_info = f"Новый заказ:\n\nИмя: {context.user_data['name']}\nАдрес: {context.user_data['address']}\nДата/время: {context.user_data['datetime']}\nПовод: {context.user_data['event']}\nБюджет: {context.user_data['budget']}"
+    order_info = (
+        f"Новый заказ:\n\n"
+        f"Имя: {context.user_data['name']}\n"
+        f"Адрес: {context.user_data['address']}\n"
+        f"Дата/время: {context.user_data['datetime']}\n"
+        f"Повод: {context.user_data['event']}\n"
+        f"Бюджет: {context.user_data['budget']}\n"
+        f"Букет: {getattr(bouquet, 'name', 'Не выбран')}"
+    )
 
     context.bot.send_message(chat_id=COURIER_ID, text=order_info)
     update.message.reply_text("Спасибо! Ваш заказ принят и скоро мы с вами свяжемся.")
